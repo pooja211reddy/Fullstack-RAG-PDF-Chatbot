@@ -18,6 +18,20 @@ from langchain_core.runnables import RunnablePassthrough
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from datetime import timedelta
+from app.auth import (
+    RegisterRequest,
+    LoginRequest,
+    TokenResponse,
+    UserResponse,
+    fake_users_db,
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+from fastapi import Depends
 
 load_dotenv()
 
@@ -227,6 +241,37 @@ def root():
 def health_check():
     return {"status": "healthy"}
 
+@app.post("/auth/register", response_model=UserResponse)
+def register_user(request: RegisterRequest):
+    if request.email in fake_users_db:
+        raise HTTPException(status_code=400, detail="Email already registered.")
+
+    fake_users_db[request.email] = {
+        "email": request.email,
+        "hashed_password": hash_password(request.password),
+    }
+
+    return UserResponse(email=request.email)
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login_user(request: LoginRequest):
+    user = fake_users_db.get(request.email)
+
+    if not user or not verify_password(request.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    access_token = create_access_token(
+        data={"sub": user["email"]},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    return TokenResponse(access_token=access_token)
+
+
+@app.get("/auth/me", response_model=UserResponse)
+def get_me(current_user: dict = Depends(get_current_user)):
+    return UserResponse(email=current_user["email"])
 
 @app.get("/files")
 def list_uploaded_files():
@@ -241,7 +286,10 @@ def list_uploaded_files():
 
 
 @app.post("/upload")
-async def upload_pdfs(files: List[UploadFile] = File(...)):
+async def upload_pdfs(
+    files: List[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     saved_files = []
 
     for uploaded_file in files:
@@ -265,7 +313,7 @@ async def upload_pdfs(files: List[UploadFile] = File(...)):
 
 
 @app.post("/build-index", response_model=BuildIndexResponse)
-def build_index():
+def build_index(current_user: dict = Depends(get_current_user)):
     documents = load_pdf_documents()
     chunks = split_documents(documents)
     save_faiss_index(chunks)
@@ -278,7 +326,10 @@ def build_index():
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+def chat(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user),
+):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
@@ -301,7 +352,7 @@ def chat(request: ChatRequest):
 
 
 @app.delete("/reset")
-def reset_knowledge_base():
+def reset_knowledge_base(current_user: dict = Depends(get_current_user)):
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)
 
