@@ -67,10 +67,17 @@ function App() {
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(responseText || "Backend returned a non-JSON error.");
+      }
 
       if (!response.ok) {
-        throw new Error(data.detail || "Authentication failed.");
+        throw new Error(data.detail || responseText || "Authentication failed.");
       }
 
       if (authMode === "register") {
