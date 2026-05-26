@@ -15,8 +15,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = "https://fullstack-rag-pdf-chatbot-production.up.railway.app";
 
 function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
