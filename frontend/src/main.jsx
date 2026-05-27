@@ -130,9 +130,7 @@ function App() {
       setUserEmail(email);
       setPassword("");
 
-      showStatus("Login successful. Loading chat history...", "success");
-
-      await loadChatHistory(data.access_token);
+      showStatus("Login successful. Click 'Load Chat History' to view previous chats.", "success");
 
       showStatus("Login successful.", "success");
     } catch (error) {
