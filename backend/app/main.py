@@ -24,7 +24,6 @@ from app.auth import (
     LoginRequest,
     TokenResponse,
     UserResponse,
-    fake_users_db,
     hash_password,
     verify_password,
     create_access_token,
@@ -32,6 +31,9 @@ from app.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.database import Base, engine, get_db
+from app.models import User
 
 load_dotenv()
 
@@ -40,6 +42,7 @@ app = FastAPI(
     description="FastAPI backend for a PDF RAG chatbot using LangChain, FAISS, HuggingFace embeddings, and Gemini.",
     version="2.0.0",
 )
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -242,27 +245,39 @@ def health_check():
     return {"status": "healthy"}
 
 @app.post("/auth/register", response_model=UserResponse)
-def register_user(request: RegisterRequest):
-    if request.email in fake_users_db:
+def register_user(
+    request: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+    existing_user = db.query(User).filter(User.email == request.email).first()
+
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered.")
 
-    fake_users_db[request.email] = {
-        "email": request.email,
-        "hashed_password": hash_password(request.password),
-    }
+    new_user = User(
+        email=request.email,
+        hashed_password=hash_password(request.password),
+    )
 
-    return UserResponse(email=request.email)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return UserResponse(email=new_user.email)
 
 
 @app.post("/auth/login", response_model=TokenResponse)
-def login_user(request: LoginRequest):
-    user = fake_users_db.get(request.email)
+def login_user(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.email == request.email).first()
 
-    if not user or not verify_password(request.password, user["hashed_password"]):
+    if not user or not verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     access_token = create_access_token(
-        data={"sub": user["email"]},
+        data={"sub": user.email},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
@@ -270,8 +285,8 @@ def login_user(request: LoginRequest):
 
 
 @app.get("/auth/me", response_model=UserResponse)
-def get_me(current_user: dict = Depends(get_current_user)):
-    return UserResponse(email=current_user["email"])
+def get_me(current_user: User = Depends(get_current_user)):
+    return UserResponse(email=current_user.email)
 
 @app.get("/files")
 def list_uploaded_files():
