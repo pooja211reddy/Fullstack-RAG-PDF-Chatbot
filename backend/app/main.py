@@ -389,6 +389,20 @@ def chat(
 
     return ChatResponse(answer=answer, sources=sources)
 
+@app.get("/chat-history", response_model=list[ChatHistoryResponse])
+def get_chat_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == current_user.id)
+        .order_by(ChatMessage.created_at.asc())
+        .all()
+    )
+
+    return messages
+
 
 @app.delete("/reset")
 def reset_knowledge_base(current_user: dict = Depends(get_current_user)):
