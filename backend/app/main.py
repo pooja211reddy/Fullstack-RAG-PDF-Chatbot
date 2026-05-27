@@ -33,7 +33,7 @@ from app.auth import (
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.database import Base, engine, get_db
-from app.models import User
+from app.models import User, ChatMessage
 
 load_dotenv()
 
@@ -81,6 +81,14 @@ class BuildIndexResponse(BaseModel):
     message: str
     files_processed: int
     chunks_created: int
+
+class ChatHistoryResponse(BaseModel):
+    id: int
+    role: str
+    message: str
+
+    class Config:
+        from_attributes = True
 
 
 def get_embeddings():
@@ -343,7 +351,8 @@ def build_index(current_user: dict = Depends(get_current_user)):
 @app.post("/chat", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
@@ -351,6 +360,21 @@ def chat(
     chain, retriever = build_rag_chain(request.provider)
 
     answer = chain.invoke(request.question)
+    user_message = ChatMessage(
+        user_id=current_user.id,
+        role="user",
+        message=request.question,
+    )
+
+    assistant_message = ChatMessage(
+        user_id=current_user.id,
+        role="assistant",
+        message=answer,
+    )
+
+    db.add(user_message)
+    db.add(assistant_message)
+    db.commit()
     retrieved_docs = retriever.invoke(request.question)
 
     sources = []
