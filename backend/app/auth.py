@@ -7,7 +7,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import User
 
 load_dotenv()
 
@@ -15,21 +19,17 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change_this_secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 security = HTTPBearer()
-
-# Temporary in-memory user store.
-# Later, replace this with PostgreSQL.
-fake_users_db = {}
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -64,7 +64,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> dict:
+    db: Session = Depends(get_db),
+) -> User:
     token = credentials.credentials
 
     try:
@@ -83,7 +84,7 @@ def get_current_user(
             detail="Invalid or expired authentication token.",
         )
 
-    user = fake_users_db.get(email)
+    user = db.query(User).filter(User.email == email).first()
 
     if user is None:
         raise HTTPException(
