@@ -46,6 +46,44 @@ function App() {
     Authorization: `Bearer ${token}`,
   });
 
+  const loadChatHistory = async (authToken = token) => {
+    if (!authToken) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat-history`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      const responseText = await response.text();
+      let data = [];
+
+      try {
+        data = responseText ? JSON.parse(responseText) : [];
+      } catch {
+        throw new Error(responseText || "Failed to load chat history.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to load chat history.");
+      }
+
+      const formattedMessages = data.map((item) => ({
+        role: item.role,
+        text: item.message,
+        sources: [],
+      }));
+
+      setMessages(formattedMessages);
+    } catch (error) {
+      showStatus(error.message, "error");
+    }
+  };
+
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) {
       showStatus("Please enter email and password.", "error");
@@ -91,6 +129,10 @@ function App() {
       setToken(data.access_token);
       setUserEmail(email);
       setPassword("");
+
+      showStatus("Login successful. Loading chat history...", "success");
+
+      await loadChatHistory(data.access_token);
 
       showStatus("Login successful.", "success");
     } catch (error) {
@@ -245,6 +287,8 @@ function App() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      await loadChatHistory();
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -322,6 +366,11 @@ function App() {
               <p>
                 Logged in as <strong>{userEmail}</strong>
               </p>
+
+              <button className="secondary-btn" onClick={() => loadChatHistory()}>
+                Load Chat History
+              </button>
+
               <button className="danger-btn" onClick={logout}>
                 <LogOut size={16} /> Logout
               </button>
@@ -454,7 +503,9 @@ function App() {
               <div className="empty-state">
                 <Bot size={44} />
                 <h3>No messages yet</h3>
-                <p>Try: “What are the main skills in this resume?”</p>
+                <p>
+                  Login to load your saved chat history, or ask: “What are the main skills in this resume?”
+                </p>
               </div>
             ) : (
               messages.map((message, index) => (
