@@ -12,19 +12,23 @@ import {
   LogIn,
   UserPlus,
   LogOut,
+  History,
 } from "lucide-react";
 import "./styles.css";
 
-const API_BASE_URL = "https://fullstack-rag-pdf-chatbot-production.up.railway.app";
+const API_BASE_URL =
+  "https://fullstack-rag-pdf-chatbot-production.up.railway.app";
 
 function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState("info");
+
   const [isUploading, setIsUploading] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
+
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
 
@@ -32,8 +36,12 @@ function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [token, setToken] = useState(() => localStorage.getItem("rag_token") || "");
-  const [userEmail, setUserEmail] = useState(() => localStorage.getItem("rag_user") || "");
+  const [token, setToken] = useState(
+    () => localStorage.getItem("rag_token") || ""
+  );
+  const [userEmail, setUserEmail] = useState(
+    () => localStorage.getItem("rag_user") || ""
+  );
 
   const isLoggedIn = Boolean(token);
 
@@ -42,9 +50,27 @@ function App() {
     setStatusType(type);
   };
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${token}`,
+  const authHeaders = (authToken = token) => ({
+    Authorization: `Bearer ${authToken}`,
   });
+
+  const parseResponse = async (response, fallbackMessage) => {
+    const responseText = await response.text();
+
+    let data = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      throw new Error(responseText || fallbackMessage);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.detail || fallbackMessage);
+    }
+
+    return data;
+  };
 
   const loadChatHistory = async (authToken = token) => {
     if (!authToken) {
@@ -59,18 +85,7 @@ function App() {
         },
       });
 
-      const responseText = await response.text();
-      let data = [];
-
-      try {
-        data = responseText ? JSON.parse(responseText) : [];
-      } catch {
-        throw new Error(responseText || "Failed to load chat history.");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Failed to load chat history.");
-      }
+      const data = await parseResponse(response, "Failed to load chat history.");
 
       const formattedMessages = data.map((item) => ({
         role: item.role,
@@ -79,6 +94,7 @@ function App() {
       }));
 
       setMessages(formattedMessages);
+      showStatus("Chat history loaded successfully.", "success");
     } catch (error) {
       showStatus(error.message, "error");
     }
@@ -104,22 +120,12 @@ function App() {
         }),
       });
 
-      const responseText = await response.text();
-      let data = {};
-
-      try {
-        data = responseText ? JSON.parse(responseText) : {};
-      } catch {
-        throw new Error(responseText || "Backend returned a non-JSON error.");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.detail || responseText || "Authentication failed.");
-      }
+      const data = await parseResponse(response, "Authentication failed.");
 
       if (authMode === "register") {
-        showStatus("Registration successful. Now login.", "success");
+        showStatus("Account created successfully. Please sign in.", "success");
         setAuthMode("login");
+        setPassword("");
         return;
       }
 
@@ -130,9 +136,9 @@ function App() {
       setUserEmail(email);
       setPassword("");
 
-      showStatus("Login successful. Click 'Load Chat History' to view previous chats.", "success");
+      showStatus("Signed in successfully. Loading chat history...", "success");
 
-      showStatus("Login successful.", "success");
+      await loadChatHistory(data.access_token);
     } catch (error) {
       showStatus(error.message, "error");
     }
@@ -147,6 +153,7 @@ function App() {
     setMessages([]);
     setUploadedFiles([]);
     setSelectedFiles([]);
+    setQuestion("");
 
     showStatus("Logged out successfully.", "success");
   };
@@ -157,7 +164,7 @@ function App() {
 
   const uploadFiles = async () => {
     if (!isLoggedIn) {
-      showStatus("Please login before uploading PDFs.", "error");
+      showStatus("Please sign in before uploading PDFs.", "error");
       return;
     }
 
@@ -174,7 +181,7 @@ function App() {
 
     try {
       setIsUploading(true);
-      showStatus("Uploading PDF files...", "info");
+      showStatus("Uploading your knowledge base...", "info");
 
       const response = await fetch(`${API_BASE_URL}/upload`, {
         method: "POST",
@@ -184,14 +191,10 @@ function App() {
         body: formData,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Upload failed.");
-      }
+      const data = await parseResponse(response, "Upload failed.");
 
       setUploadedFiles(data.files || []);
-      showStatus("PDF uploaded successfully.", "success");
+      showStatus("Knowledge base uploaded successfully.", "success");
     } catch (error) {
       showStatus(error.message, "error");
     } finally {
@@ -201,14 +204,14 @@ function App() {
 
   const buildIndex = async () => {
     if (!isLoggedIn) {
-      showStatus("Please login before building the vector index.", "error");
+      showStatus("Please sign in before building the AI index.", "error");
       return;
     }
 
     try {
       setIsBuilding(true);
       showStatus(
-        "Building vector index. First run may take time because the embedding model downloads locally...",
+        "Building AI index. First run may take time while embeddings are prepared...",
         "info"
       );
 
@@ -219,11 +222,7 @@ function App() {
         },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Index build failed.");
-      }
+      const data = await parseResponse(response, "Index build failed.");
 
       showStatus(
         `${data.message} Files: ${data.files_processed}, Chunks: ${data.chunks_created}`,
@@ -238,7 +237,7 @@ function App() {
 
   const askQuestion = async () => {
     if (!isLoggedIn) {
-      showStatus("Please login before chatting with the PDF.", "error");
+      showStatus("Please sign in before chatting with your PDF.", "error");
       return;
     }
 
@@ -272,11 +271,7 @@ function App() {
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Chat request failed.");
-      }
+      const data = await parseResponse(response, "Chat request failed.");
 
       const assistantMessage = {
         role: "assistant",
@@ -303,7 +298,7 @@ function App() {
 
   const resetKnowledgeBase = async () => {
     if (!isLoggedIn) {
-      showStatus("Please login before resetting the knowledge base.", "error");
+      showStatus("Please sign in before clearing the workspace.", "error");
       return;
     }
 
@@ -315,11 +310,7 @@ function App() {
         },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Reset failed.");
-      }
+      const data = await parseResponse(response, "Reset failed.");
 
       setMessages([]);
       setUploadedFiles([]);
@@ -333,44 +324,104 @@ function App() {
   return (
     <div className="app">
       <header className="hero">
-        <div>
-          <p className="eyebrow">Full-Stack GenAI Project</p>
-          <h1>RAG PDF Chatbot</h1>
-          <p className="subtitle">
-            Upload PDFs, build a vector index, and ask document-grounded
-            questions using FastAPI, LangChain, FAISS, local embeddings, and
-            Gemini.
-          </p>
-        </div>
+        <nav className="top-nav">
+          <div className="brand">
+            <div className="brand-icon">D</div>
+            <div>
+              <strong>DocuMind AI</strong>
+              <span>RAG Document Intelligence</span>
+            </div>
+          </div>
 
-        <div className="hero-card">
-          <Bot size={38} />
-          <span>Source-grounded answers</span>
-        </div>
+          <div className="nav-badge">
+            Secure PDF Q&A • JWT • PostgreSQL • CI/CD
+          </div>
+        </nav>
+
+        <section className="hero-content">
+          <div className="hero-copy">
+            <p className="eyebrow">Production-Ready GenAI Platform</p>
+
+            <h1>
+              Turn PDFs into a secure
+              <span> AI knowledge assistant.</span>
+            </h1>
+
+            <p className="subtitle">
+              Upload documents, build a vector index, and ask source-grounded
+              questions through a full-stack RAG workflow powered by FastAPI,
+              LangChain, FAISS, Gemini, JWT authentication, PostgreSQL, Docker,
+              and CI/CD.
+            </p>
+
+            <div className="hero-actions">
+              <a href="#workspace" className="hero-primary">
+                Start Chatting
+              </a>
+              <a href="#architecture" className="hero-secondary">
+                View Architecture
+              </a>
+            </div>
+
+            <div className="trust-row">
+              <span>JWT Auth</span>
+              <span>PostgreSQL</span>
+              <span>Dockerized</span>
+              <span>Railway Deployed</span>
+            </div>
+          </div>
+
+          <div className="hero-showcase">
+            <div className="showcase-card">
+              <div className="showcase-header">
+                <span className="dot green"></span>
+                <span className="dot yellow"></span>
+                <span className="dot red"></span>
+              </div>
+
+              <div className="mini-message user-mini">
+                What are the candidate&apos;s strongest skills?
+              </div>
+
+              <div className="mini-message ai-mini">
+                Based on the uploaded PDF, the strongest skills include Python,
+                SQL, Machine Learning, NLP, FastAPI, Docker, and Power BI.
+              </div>
+
+              <div className="source-chip">Source: Resume.pdf • Page 1</div>
+            </div>
+          </div>
+        </section>
       </header>
 
-      <main className="layout">
+      <main className="layout" id="workspace">
         <section className="panel">
-          <h2>{authMode === "login" ? <LogIn size={20} /> : <UserPlus size={20} />}
-            {authMode === "login" ? " Login" : " Register"}
+          <h2>
+            {authMode === "login" ? (
+              <LogIn size={20} />
+            ) : (
+              <UserPlus size={20} />
+            )}
+            {authMode === "login" ? " Sign In" : " Create Account"}
           </h2>
 
           <p className="helper">
-            Login to upload PDFs, build indexes, and chat securely.
+            Sign in to create a secure workspace for uploading PDFs, building AI
+            indexes, and saving chat history.
           </p>
 
           {isLoggedIn ? (
             <div className="auth-box success-auth">
               <p>
-                Logged in as <strong>{userEmail}</strong>
+                Signed in as <strong>{userEmail}</strong>
               </p>
 
               <button className="secondary-btn" onClick={() => loadChatHistory()}>
-                Load Chat History
+                <History size={16} /> Load Conversation History
               </button>
 
               <button className="danger-btn" onClick={logout}>
-                <LogOut size={16} /> Logout
+                <LogOut size={16} /> Sign Out
               </button>
             </div>
           ) : (
@@ -378,7 +429,7 @@ function App() {
               <input
                 className="text-input"
                 type="email"
-                placeholder="Email"
+                placeholder="Work email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -392,7 +443,7 @@ function App() {
               />
 
               <button className="primary-btn" onClick={handleAuth}>
-                {authMode === "login" ? "Login" : "Register"}
+                {authMode === "login" ? "Sign In" : "Create Account"}
               </button>
 
               <button
@@ -402,8 +453,8 @@ function App() {
                 }
               >
                 {authMode === "login"
-                  ? "New user? Register here"
-                  : "Already registered? Login here"}
+                  ? "New here? Create your workspace"
+                  : "Already have an account? Sign in"}
               </button>
             </div>
           )}
@@ -411,10 +462,13 @@ function App() {
           <div className="divider" />
 
           <h2>
-            <Upload size={20} /> Upload PDF
+            <Upload size={20} /> Upload Knowledge Base
           </h2>
 
-          <p className="helper">Choose one or more PDF files for the knowledge base.</p>
+          <p className="helper">
+            Add one or more PDF files that DocuMind AI should use as the source
+            of truth.
+          </p>
 
           <input
             className="file-input"
@@ -430,7 +484,7 @@ function App() {
             onClick={uploadFiles}
             disabled={isUploading || !isLoggedIn}
           >
-            {isUploading ? "Uploading..." : "Upload PDFs"}
+            {isUploading ? "Uploading..." : "Upload Knowledge Base"}
           </button>
 
           {uploadedFiles.length > 0 && (
@@ -448,11 +502,12 @@ function App() {
           <div className="divider" />
 
           <h2>
-            <Database size={20} /> Build Index
+            <Database size={20} /> Build AI Index
           </h2>
 
           <p className="helper">
-            Creates local HuggingFace embeddings and stores them in FAISS.
+            Convert PDF text into searchable vector embeddings for retrieval
+            augmented generation.
           </p>
 
           <button
@@ -460,7 +515,7 @@ function App() {
             onClick={buildIndex}
             disabled={isBuilding || !isLoggedIn}
           >
-            {isBuilding ? "Building..." : "Build Vector Index"}
+            {isBuilding ? "Building..." : "Build AI Index"}
           </button>
 
           <button
@@ -468,7 +523,7 @@ function App() {
             onClick={resetKnowledgeBase}
             disabled={!isLoggedIn}
           >
-            <Trash2 size={16} /> Reset Knowledge Base
+            <Trash2 size={16} /> Clear Workspace
           </button>
 
           {status && (
@@ -486,13 +541,14 @@ function App() {
         <section className="chat-panel">
           <div className="chat-header">
             <div>
-              <h2>Chat with your PDF</h2>
+              <h2>Chat with your knowledge base</h2>
               <p>
                 {isLoggedIn
-                  ? "Ask questions from the uploaded document."
-                  : "Login first to start chatting."}
+                  ? "Ask questions and receive source-grounded answers from your uploaded PDFs."
+                  : "Sign in first to upload documents and start a secure chat session."}
               </p>
             </div>
+
             <span className="pill">Gemini + FAISS</span>
           </div>
 
@@ -500,16 +556,17 @@ function App() {
             {messages.length === 0 ? (
               <div className="empty-state">
                 <Bot size={44} />
-                <h3>No messages yet</h3>
+                <h3>No conversation yet</h3>
                 <p>
-                  Login to load your saved chat history, or ask: “What are the main skills in this resume?”
+                  Sign in to load your saved chat history, or ask: “What are the
+                  main skills in this resume?”
                 </p>
               </div>
             ) : (
               messages.map((message, index) => (
                 <div className={`message ${message.role}`} key={index}>
                   <div className="bubble">
-                    <strong>{message.role === "user" ? "You" : "Assistant"}</strong>
+                    <strong>{message.role === "user" ? "You" : "DocuMind AI"}</strong>
                     <p>{message.text}</p>
                   </div>
 
@@ -537,8 +594,8 @@ function App() {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={
                 isLoggedIn
-                  ? "Ask a question from your PDF..."
-                  : "Login to ask questions..."
+                  ? "Ask a question from your uploaded PDFs..."
+                  : "Sign in to ask questions..."
               }
               disabled={!isLoggedIn}
               onKeyDown={(e) => {
@@ -548,11 +605,35 @@ function App() {
 
             <button onClick={askQuestion} disabled={isChatting || !isLoggedIn}>
               <Send size={18} />
-              {isChatting ? "Thinking..." : "Send"}
+              {isChatting ? "Thinking..." : "Ask AI"}
             </button>
           </div>
         </section>
       </main>
+
+      <section className="architecture-section" id="architecture">
+        <div className="architecture-card">
+          <p className="eyebrow dark-eyebrow">System Architecture</p>
+          <h2>Built like a real AI product, not just a demo.</h2>
+          <p>
+            DocuMind AI uses a full-stack RAG architecture with JWT security,
+            PostgreSQL-backed users and chat history, local embeddings, FAISS
+            retrieval, Gemini response generation, Dockerized services, and
+            GitHub Actions CI/CD.
+          </p>
+
+          <div className="architecture-grid">
+            <span>React Frontend</span>
+            <span>FastAPI Backend</span>
+            <span>JWT Auth</span>
+            <span>PostgreSQL</span>
+            <span>PDF Processing</span>
+            <span>FAISS Vector Search</span>
+            <span>Gemini LLM</span>
+            <span>Railway Deployment</span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
