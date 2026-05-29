@@ -17,7 +17,7 @@ import {
 import "./styles.css";
 
 const API_BASE_URL =
-  "https://fullstack-rag-pdf-chatbot-production.up.railway.app";
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
