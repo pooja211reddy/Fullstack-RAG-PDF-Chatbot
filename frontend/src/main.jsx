@@ -611,29 +611,80 @@ function App() {
         </section>
       </main>
 
-      <section className="architecture-section" id="architecture">
-        <div className="architecture-card">
-          <p className="eyebrow dark-eyebrow">System Architecture</p>
-          <h2>Built like a real AI product, not just a demo.</h2>
-          <p>
+      <section id="architecture" className="architecture-section">
+      <div className="architecture-container">
+        <div className="architecture-copy">
+          <p className="section-eyebrow">SYSTEM ARCHITECTURE</p>
+
+          <h2>
+            Built like a real AI product,
+            <span> not just a demo.</span>
+          </h2>
+
+          <p className="architecture-description">
             DocuMind AI uses a full-stack RAG architecture with JWT security,
-            PostgreSQL-backed users and chat history, local embeddings, FAISS
-            retrieval, Gemini response generation, Dockerized services, and
-            GitHub Actions CI/CD.
+            PostgreSQL-backed users and chat history, Hugging Face embeddings,
+            FAISS vector retrieval, Gemini response generation, Dockerized
+            services, and automated cloud deployment.
           </p>
 
-          <div className="architecture-grid">
+          <div className="architecture-tags">
             <span>React Frontend</span>
             <span>FastAPI Backend</span>
-            <span>JWT Auth</span>
-            <span>PostgreSQL</span>
+            <span>JWT Authentication</span>
+            <span>Supabase PostgreSQL</span>
             <span>PDF Processing</span>
+            <span>Hugging Face Embeddings</span>
             <span>FAISS Vector Search</span>
-            <span>Gemini LLM</span>
-            <span>Railway Deployment</span>
+            <span>Gemini API</span>
+            <span>Docker</span>
+            <span>Google Cloud Run</span>
+            <span>Vercel</span>
+            <span>CI/CD</span>
           </div>
         </div>
-      </section>
+
+        <div className="architecture-flow">
+          <div className="architecture-card">
+            <div className="architecture-icon">01</div>
+            <div>
+              <h3>Secure Web App</h3>
+              <p>React + Vite frontend deployed on Vercel</p>
+            </div>
+          </div>
+
+          <div className="architecture-line" />
+
+          <div className="architecture-card">
+            <div className="architecture-icon">02</div>
+            <div>
+              <h3>Cloud API Layer</h3>
+              <p>Dockerized FastAPI backend running on Google Cloud Run</p>
+            </div>
+          </div>
+
+          <div className="architecture-line" />
+
+          <div className="architecture-card">
+            <div className="architecture-icon">03</div>
+            <div>
+              <h3>RAG Intelligence</h3>
+              <p>Hugging Face embeddings, FAISS retrieval, and Gemini answers</p>
+            </div>
+          </div>
+
+          <div className="architecture-line" />
+
+          <div className="architecture-card">
+            <div className="architecture-icon">04</div>
+            <div>
+              <h3>Persistent Data</h3>
+              <p>Supabase PostgreSQL for users and saved chat history</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     </div>
   );
 }
