@@ -21,7 +21,7 @@ Upload documents, build a vector index, and ask source-grounded questions throug
 
 <br />
 
-[Live Application](PASTE_YOUR_STABLE_VERCEL_URL_HERE) •
+[Live Application](https://fullstack-rag-pdf-chatbot-m9jkjaoks-pooja-reddy-s-projects.vercel.app) •
 [Backend API](https://fullstack-rag-pdf-chatbot-1063440168708.us-central1.run.app) •
 [Swagger Docs](https://fullstack-rag-pdf-chatbot-1063440168708.us-central1.run.app/docs) •
 [Health Check](https://fullstack-rag-pdf-chatbot-1063440168708.us-central1.run.app/health)
@@ -501,7 +501,7 @@ Cloud Deployment
 
 ## Author
 
-Developed as a full-stack GenAI portfolio project to demonstrate secure RAG architecture, cloud deployment, and production-oriented software engineering practices.
+Pooja Reddy Nedhunuri
 
 ---
 
@@ -509,6 +509,6 @@ Developed as a full-stack GenAI portfolio project to demonstrate secure RAG arch
 
 ### Turn your PDFs into an AI-powered knowledge base
 
-[Try DocuMind AI](PASTE_YOUR_STABLE_VERCEL_URL_HERE)
+[Try DocuMind AI](https://fullstack-rag-pdf-chatbot-m9jkjaoks-pooja-reddy-s-projects.vercel.app/)
 
 </div>
