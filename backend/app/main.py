@@ -57,9 +57,18 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_origin_regex=r"https://[a-zA-Z0-9-]+\.vercel\.app",
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True,
+    allow_methods=[
+        "GET",
+        "POST",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+    ],
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
