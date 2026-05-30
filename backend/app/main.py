@@ -42,7 +42,13 @@ app = FastAPI(
     description="FastAPI backend for a PDF RAG chatbot using LangChain, FAISS, HuggingFace embeddings, and Gemini.",
     version="2.0.0",
 )
-Base.metadata.create_all(bind=engine)
+@app.on_event("startup")
+def create_database_tables():
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("Database tables verified successfully.")
+    except Exception as error:
+        print(f"Database connection failed during startup: {error}")
 
 app.add_middleware(
     CORSMiddleware,
